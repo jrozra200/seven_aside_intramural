@@ -319,21 +319,6 @@
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {firstHalf.benched.length > 0 && (
-                                                <div className="mt-4 pt-4 border-t border-gray-200">
-                                                    <h4 className="font-semibold text-gray-600 mb-2 text-sm">
-                                                        🪑 Bench (entire quarter):
-                                                    </h4>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {firstHalf.benched.filter(p => secondHalf.benched.includes(p)).map((playerIdx) => (
-                                                            <span key={playerIdx} className="text-gray-600 bg-gray-100 px-3 py-1 rounded text-sm border border-gray-300">
-                                                                {players[playerIdx]}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })}
