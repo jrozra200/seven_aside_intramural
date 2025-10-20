@@ -1,314 +1,370 @@
-import React, { useState } from 'react';
-import { Users, RefreshCw } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soccer Team Rotation Schedule Generator</title>
 
-export default function SoccerRotation() {
-  const [numPlayers, setNumPlayers] = useState(10);
-  const [players, setPlayers] = useState(Array(10).fill('').map((_, i) => `Player ${i + 1}`));
-  const [goalkeepers, setGoalkeepers] = useState([0, 1, 2, 3]); // One for each quarter
-  const [schedule, setSchedule] = useState(null);
+    <!-- React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-  const handleNumPlayersChange = (value) => {
-    const num = parseInt(value);
-    setNumPlayers(num);
-    
-    // Update players array
-    const newPlayers = Array(num).fill('').map((_, i) => 
-      i < players.length ? players[i] : `Player ${i + 1}`
-    );
-    setPlayers(newPlayers);
-    
-    // Reset goalkeepers to valid indices
-    setGoalkeepers([0, Math.min(1, num - 1), Math.min(2, num - 1), Math.min(3, num - 1)]);
-    
-    // Clear schedule when number changes
-    setSchedule(null);
-  };
+    <!-- Babel Standalone for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  const handlePlayerChange = (index, value) => {
-    const newPlayers = [...players];
-    newPlayers[index] = value || `Player ${index + 1}`;
-    setPlayers(newPlayers);
-  };
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-  const handleGoalkeeperChange = (quarter, value) => {
-    const newGoalkeepers = [...goalkeepers];
-    newGoalkeepers[quarter] = parseInt(value);
-    setGoalkeepers(newGoalkeepers);
-  };
-
-  const generateSchedule = () => {
-    // 4 quarters, 2 half-quarters each = 8 half-quarters total
-    // 6 field positions per half-quarter
-    const quarters = 4;
-    const halfQuartersPerQuarter = 2;
-    const fieldPositions = 6;
-    
-    const newSchedule = [];
-    const totalPlays = Array(numPlayers).fill(0); // Track plays for all players
-    
-    // Process each quarter
-    for (let q = 0; q < quarters; q++) {
-      const gkIndex = goalkeepers[q];
-      const fieldPlayers = Array(numPlayers).fill(0).map((_, i) => i).filter(i => i !== gkIndex);
-      
-      // For this quarter's 2 half-quarters, rotate the field players through 6 positions
-      const playerPlays = Array(numPlayers).fill(0);
-      
-      for (let hq = 0; hq < halfQuartersPerQuarter; hq++) {
-        const playing = [];
-        
-        // Calculate priority for each field player
-        const available = fieldPlayers.map(i => ({
-          index: i,
-          totalPlays: totalPlays[i],
-          quarterPlays: playerPlays[i],
-          lastPlayed: playerPlays[i] === 0 ? -999 : hq - 1
-        }))
-        .sort((a, b) => {
-          // Prioritize players with fewer plays in this quarter
-          if (a.quarterPlays !== b.quarterPlays) return a.quarterPlays - b.quarterPlays;
-          // Then prioritize players with fewer total plays
-          if (a.totalPlays !== b.totalPlays) return a.totalPlays - b.totalPlays;
-          // Then prioritize players who haven't played recently
-          return a.lastPlayed - b.lastPlayed;
-        });
-        
-        // Select top 6 available players (or all if fewer than 6)
-        const numToSelect = Math.min(fieldPositions, available.length);
-        for (let i = 0; i < numToSelect; i++) {
-          playing.push(available[i].index);
-          playerPlays[available[i].index]++;
-          totalPlays[available[i].index]++;
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        
-        playing.sort((a, b) => a - b);
-        
-        const benched = fieldPlayers.filter(i => !playing.includes(i));
-        
-        newSchedule.push({ 
-          quarter: q + 1,
-          goalkeeper: gkIndex,
-          playing, 
-          benched 
-        });
-      }
-    }
-    
-    setSchedule({ halfQuarters: newSchedule, totalPlays });
-  };
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-  const getQuarterLabel = (hqIndex) => {
-    const quarter = Math.floor(hqIndex / 2) + 1;
-    const half = hqIndex % 2 === 0 ? '1st half' : '2nd half';
-    return `Q${quarter} ${half}`;
-  };
+    <script type="text/babel">
+        const { useState } = React;
 
-  return (
-    <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-          <Users className="text-blue-600" />
-          Soccer Team Rotation Schedule
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Create a fair rotation schedule for 4 quarters with substitutions every half-quarter (7-10 players)
-        </p>
+        // Lucide React icons (simplified inline versions)
+        const Users = ({ className }) => (
+            <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        );
 
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-3 text-gray-700">Number of Players</h2>
-          <select
-            value={numPlayers}
-            onChange={(e) => handleNumPlayersChange(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {[7, 8, 9, 10].map((num) => (
-              <option key={num} value={num}>{num} players</option>
-            ))}
-          </select>
-          <p className="text-sm text-gray-500 mt-2">
-            Select how many players are available for this game (minimum 7, maximum 10).
-          </p>
-        </div>
+        const RefreshCw = ({ size, className }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+        );
 
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-3 text-gray-700">Player Names</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {players.slice(0, numPlayers).map((player, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600 w-20">
-                  Player {i + 1}:
-                </span>
-                <input
-                  type="text"
-                  value={player}
-                  onChange={(e) => handlePlayerChange(i, e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+        function SoccerRotation() {
+            const [numPlayers, setNumPlayers] = useState(10);
+            const [players, setPlayers] = useState(Array(10).fill('').map((_, i) => `Player ${i + 1}`));
+            const [goalkeepers, setGoalkeepers] = useState([0, 1, 2, 3]); // One for each quarter
+            const [schedule, setSchedule] = useState(null);
 
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-3 text-gray-700">Select Goalkeeper for Each Quarter</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((q) => (
-              <div key={q}>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Quarter {q} Goalkeeper
-                </label>
-                <select
-                  value={goalkeepers[q - 1]}
-                  onChange={(e) => handleGoalkeeperChange(q - 1, e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {players.slice(0, numPlayers).map((player, i) => (
-                    <option key={i} value={i}>{player}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-gray-500 mt-3">
-            Each goalkeeper plays the entire quarter (both half-quarters) and is never subbed during their quarter.
-          </p>
-        </div>
+            const handleNumPlayersChange = (value) => {
+                const num = parseInt(value);
+                setNumPlayers(num);
 
-        <button
-          onClick={generateSchedule}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-colors"
-        >
-          <RefreshCw size={20} />
-          Generate Rotation Schedule
-        </button>
-      </div>
-
-      {schedule && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Rotation Schedule</h2>
-          
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="font-semibold text-blue-800 mb-2">Goalkeepers by Quarter:</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-              {[1, 2, 3, 4].map((q) => (
-                <div key={q} className="bg-white px-3 py-2 rounded border border-blue-100">
-                  <span className="font-medium text-gray-700">Q{q}:</span>
-                  <span className="ml-1 text-blue-600">{players.slice(0, numPlayers)[goalkeepers[q - 1]]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {[0, 2, 4, 6].map((startIdx) => {
-              const quarter = Math.floor(startIdx / 2) + 1;
-              const firstHalf = schedule.halfQuarters[startIdx];
-              const secondHalf = schedule.halfQuarters[startIdx + 1];
-              
-              // Determine substitutions
-              const staying = firstHalf.playing.filter(p => secondHalf.playing.includes(p));
-              const comingOff = firstHalf.playing.filter(p => !secondHalf.playing.includes(p));
-              const comingOn = secondHalf.playing.filter(p => !firstHalf.playing.includes(p));
-              
-              return (
-                <div key={quarter} className="border-2 border-gray-300 rounded-lg p-5 hover:shadow-lg transition-shadow bg-white">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-2xl text-gray-800">
-                      Quarter {quarter}
-                    </h3>
-                    <p className="text-lg text-blue-600 font-semibold">
-                      🥅 GK: {players[firstHalf.goalkeeper]}
-                    </p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-green-700 mb-3 text-lg">
-                        1st Half
-                      </h4>
-                      <div className="space-y-2">
-                        {staying.map((playerIdx) => (
-                          <div key={playerIdx} className="flex items-center gap-2">
-                            <div className="flex-1 text-gray-700 bg-green-50 px-3 py-2 rounded font-medium border border-green-200">
-                              {players[playerIdx]}
-                            </div>
-                            <span className="text-green-600 text-sm font-semibold">Stays</span>
-                          </div>
-                        ))}
-                        {comingOff.map((playerIdx, idx) => (
-                          <div key={playerIdx} className="flex items-center gap-2">
-                            <div className="flex-1 text-gray-700 bg-yellow-50 px-3 py-2 rounded font-medium border border-yellow-300">
-                              {players[playerIdx]}
-                            </div>
-                            <span className="text-blue-600 font-bold">→</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold text-green-700 mb-3 text-lg">
-                        2nd Half
-                      </h4>
-                      <div className="space-y-2">
-                        {staying.map((playerIdx) => (
-                          <div key={playerIdx} className="flex items-center gap-2">
-                            <span className="text-green-600 text-sm font-semibold">Stays</span>
-                            <div className="flex-1 text-gray-700 bg-green-50 px-3 py-2 rounded font-medium border border-green-200">
-                              {players[playerIdx]}
-                            </div>
-                          </div>
-                        ))}
-                        {comingOn.map((playerIdx, idx) => (
-                          <div key={playerIdx} className="flex items-center gap-2">
-                            <span className="text-blue-600 font-bold">→</span>
-                            <div className="flex-1 text-gray-700 bg-blue-50 px-3 py-2 rounded font-medium border border-blue-300">
-                              {players[playerIdx]}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {firstHalf.benched.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h4 className="font-semibold text-gray-600 mb-2 text-sm">
-                        🪑 Bench (entire quarter):
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {firstHalf.benched.filter(p => secondHalf.benched.includes(p)).map((playerIdx) => (
-                          <span key={playerIdx} className="text-gray-600 bg-gray-100 px-3 py-1 rounded text-sm border border-gray-300">
-                            {players[playerIdx]}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
-            <h3 className="font-semibold text-green-800 mb-2">Playing Time Summary</h3>
-            <p className="text-sm text-green-700 mb-3">
-              Total half-quarters on field (including goalkeeper time):
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-              {players.slice(0, numPlayers).map((player, idx) => {
-                const plays = schedule.totalPlays[idx];
-                return (
-                  <div key={idx} className="bg-white px-3 py-2 rounded border border-green-100">
-                    <span className="font-medium text-gray-700">{player}:</span>
-                    <span className="ml-2 text-green-600 font-semibold">{plays}/8</span>
-                  </div>
+                // Update players array
+                const newPlayers = Array(num).fill('').map((_, i) =>
+                    i < players.length ? players[i] : `Player ${i + 1}`
                 );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+                setPlayers(newPlayers);
+
+                // Reset goalkeepers to valid indices
+                setGoalkeepers([0, Math.min(1, num - 1), Math.min(2, num - 1), Math.min(3, num - 1)]);
+
+                // Clear schedule when number changes
+                setSchedule(null);
+            };
+
+            const handlePlayerChange = (index, value) => {
+                const newPlayers = [...players];
+                newPlayers[index] = value || `Player ${index + 1}`;
+                setPlayers(newPlayers);
+            };
+
+            const handleGoalkeeperChange = (quarter, value) => {
+                const newGoalkeepers = [...goalkeepers];
+                newGoalkeepers[quarter] = parseInt(value);
+                setGoalkeepers(newGoalkeepers);
+            };
+
+            const generateSchedule = () => {
+                // 4 quarters, 2 half-quarters each = 8 half-quarters total
+                // 6 field positions per half-quarter
+                const quarters = 4;
+                const halfQuartersPerQuarter = 2;
+                const fieldPositions = 6;
+
+                const newSchedule = [];
+                const totalPlays = Array(numPlayers).fill(0); // Track plays for all players
+
+                // Process each quarter
+                for (let q = 0; q < quarters; q++) {
+                    const gkIndex = goalkeepers[q];
+                    const fieldPlayers = Array(numPlayers).fill(0).map((_, i) => i).filter(i => i !== gkIndex);
+
+                    // For this quarter's 2 half-quarters, rotate the field players through 6 positions
+                    const playerPlays = Array(numPlayers).fill(0);
+
+                    for (let hq = 0; hq < halfQuartersPerQuarter; hq++) {
+                        const playing = [];
+
+                        // Calculate priority for each field player
+                        const available = fieldPlayers.map(i => ({
+                            index: i,
+                            totalPlays: totalPlays[i],
+                            quarterPlays: playerPlays[i],
+                            lastPlayed: playerPlays[i] === 0 ? -999 : hq - 1
+                        }))
+                        .sort((a, b) => {
+                            // Prioritize players with fewer plays in this quarter
+                            if (a.quarterPlays !== b.quarterPlays) return a.quarterPlays - b.quarterPlays;
+                            // Then prioritize players with fewer total plays
+                            if (a.totalPlays !== b.totalPlays) return a.totalPlays - b.totalPlays;
+                            // Then prioritize players who haven't played recently
+                            return a.lastPlayed - b.lastPlayed;
+                        });
+
+                        // Select top 6 available players (or all if fewer than 6)
+                        const numToSelect = Math.min(fieldPositions, available.length);
+                        for (let i = 0; i < numToSelect; i++) {
+                            playing.push(available[i].index);
+                            playerPlays[available[i].index]++;
+                            totalPlays[available[i].index]++;
+                        }
+
+                        playing.sort((a, b) => a - b);
+
+                        const benched = fieldPlayers.filter(i => !playing.includes(i));
+
+                        newSchedule.push({
+                            quarter: q + 1,
+                            goalkeeper: gkIndex,
+                            playing,
+                            benched
+                        });
+                    }
+                }
+
+                setSchedule({ halfQuarters: newSchedule, totalPlays });
+            };
+
+            const getQuarterLabel = (hqIndex) => {
+                const quarter = Math.floor(hqIndex / 2) + 1;
+                const half = hqIndex % 2 === 0 ? '1st half' : '2nd half';
+                return `Q${quarter} ${half}`;
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
+                    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <Users className="text-blue-600" />
+                            Soccer Team Rotation Schedule
+                        </h1>
+                        <p className="text-gray-600 mb-6">
+                            Create a fair rotation schedule for 4 quarters with substitutions every half-quarter (7-10 players)
+                        </p>
+
+                        <div className="mb-6">
+                            <h2 className="text-xl font-semibold mb-3 text-gray-700">Number of Players</h2>
+                            <select
+                                value={numPlayers}
+                                onChange={(e) => handleNumPlayersChange(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                {[7, 8, 9, 10].map((num) => (
+                                    <option key={num} value={num}>{num} players</option>
+                                ))}
+                            </select>
+                            <p className="text-sm text-gray-500 mt-2">
+                                Select how many players are available for this game (minimum 7, maximum 10).
+                            </p>
+                        </div>
+
+                        <div className="mb-6">
+                            <h2 className="text-xl font-semibold mb-3 text-gray-700">Player Names</h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                {players.slice(0, numPlayers).map((player, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-600 w-20">
+                                            Player {i + 1}:
+                                        </span>
+                                        <input
+                                            type="text"
+                                            value={player}
+                                            onChange={(e) => handlePlayerChange(i, e.target.value)}
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <h2 className="text-xl font-semibold mb-3 text-gray-700">Select Goalkeeper for Each Quarter</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {[1, 2, 3, 4].map((q) => (
+                                    <div key={q}>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                                            Quarter {q} Goalkeeper
+                                        </label>
+                                        <select
+                                            value={goalkeepers[q - 1]}
+                                            onChange={(e) => handleGoalkeeperChange(q - 1, e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            {players.slice(0, numPlayers).map((player, i) => (
+                                                <option key={i} value={i}>{player}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-sm text-gray-500 mt-3">
+                                Each goalkeeper plays the entire quarter (both half-quarters) and is never subbed during their quarter.
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={generateSchedule}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md flex items-center justify-center gap-2 transition-colors"
+                        >
+                            <RefreshCw size={20} />
+                            Generate Rotation Schedule
+                        </button>
+                    </div>
+
+                    {schedule && (
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Rotation Schedule</h2>
+
+                            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                                <p className="font-semibold text-blue-800 mb-2">Goalkeepers by Quarter:</p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                    {[1, 2, 3, 4].map((q) => (
+                                        <div key={q} className="bg-white px-3 py-2 rounded border border-blue-100">
+                                            <span className="font-medium text-gray-700">Q{q}:</span>
+                                            <span className="ml-1 text-blue-600">{players.slice(0, numPlayers)[goalkeepers[q - 1]]}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {[0, 2, 4, 6].map((startIdx) => {
+                                    const quarter = Math.floor(startIdx / 2) + 1;
+                                    const firstHalf = schedule.halfQuarters[startIdx];
+                                    const secondHalf = schedule.halfQuarters[startIdx + 1];
+
+                                    // Determine substitutions
+                                    const staying = firstHalf.playing.filter(p => secondHalf.playing.includes(p));
+                                    const comingOff = firstHalf.playing.filter(p => !secondHalf.playing.includes(p));
+                                    const comingOn = secondHalf.playing.filter(p => !firstHalf.playing.includes(p));
+
+                                    return (
+                                        <div key={quarter} className="border-2 border-gray-300 rounded-lg p-5 hover:shadow-lg transition-shadow bg-white">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h3 className="font-bold text-2xl text-gray-800">
+                                                    Quarter {quarter}
+                                                </h3>
+                                                <p className="text-lg text-blue-600 font-semibold">
+                                                    🥅 GK: {players[firstHalf.goalkeeper]}
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div>
+                                                    <h4 className="font-semibold text-green-700 mb-3 text-lg">
+                                                        1st Half
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {staying.map((playerIdx) => (
+                                                            <div key={playerIdx} className="flex items-center gap-2">
+                                                                <div className="flex-1 text-gray-700 bg-green-50 px-3 py-2 rounded font-medium border border-green-200">
+                                                                    {players[playerIdx]}
+                                                                </div>
+                                                                <span className="text-green-600 text-sm font-semibold">Stays</span>
+                                                            </div>
+                                                        ))}
+                                                        {comingOff.map((playerIdx, idx) => (
+                                                            <div key={playerIdx} className="flex items-center gap-2">
+                                                                <div className="flex-1 text-gray-700 bg-yellow-50 px-3 py-2 rounded font-medium border border-yellow-300">
+                                                                    {players[playerIdx]}
+                                                                </div>
+                                                                <span className="text-blue-600 font-bold">→</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <h4 className="font-semibold text-green-700 mb-3 text-lg">
+                                                        2nd Half
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {staying.map((playerIdx) => (
+                                                            <div key={playerIdx} className="flex items-center gap-2">
+                                                                <span className="text-green-600 text-sm font-semibold">Stays</span>
+                                                                <div className="flex-1 text-gray-700 bg-green-50 px-3 py-2 rounded font-medium border border-green-200">
+                                                                    {players[playerIdx]}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {comingOn.map((playerIdx, idx) => (
+                                                            <div key={playerIdx} className="flex items-center gap-2">
+                                                                <span className="text-blue-600 font-bold">→</span>
+                                                                <div className="flex-1 text-gray-700 bg-blue-50 px-3 py-2 rounded font-medium border border-blue-300">
+                                                                    {players[playerIdx]}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {firstHalf.benched.length > 0 && (
+                                                <div className="mt-4 pt-4 border-t border-gray-200">
+                                                    <h4 className="font-semibold text-gray-600 mb-2 text-sm">
+                                                        🪑 Bench (entire quarter):
+                                                    </h4>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {firstHalf.benched.filter(p => secondHalf.benched.includes(p)).map((playerIdx) => (
+                                                            <span key={playerIdx} className="text-gray-600 bg-gray-100 px-3 py-1 rounded text-sm border border-gray-300">
+                                                                {players[playerIdx]}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
+                                <h3 className="font-semibold text-green-800 mb-2">Playing Time Summary</h3>
+                                <p className="text-sm text-green-700 mb-3">
+                                    Total half-quarters on field (including goalkeeper time):
+                                </p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                                    {players.slice(0, numPlayers).map((player, idx) => {
+                                        const plays = schedule.totalPlays[idx];
+                                        return (
+                                            <div key={idx} className="bg-white px-3 py-2 rounded border border-green-100">
+                                                <span className="font-medium text-gray-700">{player}:</span>
+                                                <span className="ml-2 text-green-600 font-semibold">{plays}/8</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<SoccerRotation />);
+    </script>
+</body>
+</html>
